@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4547934206570551064}
-  - component: {fileID: 1132540691104966695}
   m_Layer: 0
   m_Name: magnet attach point
   m_TagString: Untagged
@@ -26,26 +25,12 @@ Transform:
   m_GameObject: {fileID: 289069707532804331}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: -0.57, y: 0, z: 0}
+  m_LocalScale: {x: 1.08, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7407519401841854300}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1132540691104966695
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 289069707532804331}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6bfda15d4a2450d4795c815ca32addb4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.MagnetAttachPoint
-  ShowTopMostFoldoutHeaderGroup: 1
-  emotionState: {fileID: 4981926784819808249}
 --- !u!1 &3158446771602698915
 GameObject:
   m_ObjectHideFlags: 0
@@ -62,9 +47,11 @@ GameObject:
   - component: {fileID: 4981926784819808249}
   - component: {fileID: 9190373532576699561}
   - component: {fileID: 6772942845625096299}
+  - component: {fileID: 4933638912929111571}
+  - component: {fileID: 3937223680957038387}
   m_Layer: 0
   m_Name: box
-  m_TagString: Untagged
+  m_TagString: Grab
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -152,7 +139,7 @@ BoxCollider:
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 64
   m_ExcludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -175,8 +162,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 4188138993
-  InScenePlacedSourceGlobalObjectIdHash: 0
+  GlobalObjectIdHash: 3180368384
+  InScenePlacedSourceGlobalObjectIdHash: 3680036387
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
@@ -251,8 +238,43 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.BoxEmotionApplier
   ShowTopMostFoldoutHeaderGroup: 1
   emotionState: {fileID: 4981926784819808249}
-  magnetAttach: {fileID: 1132540691104966695}
+  magnetAttach: {fileID: 0}
   rb: {fileID: 9190373532576699561}
-  baseDriftStrength: 5
+  baseDriftStrength: 1
   renderersToHide: []
   collidersToToggle: []
+--- !u!114 &4933638912929111571
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3158446771602698915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e0fea5c23f953a04082ee5e94789a38c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.BoxPersonalityController
+  ShowTopMostFoldoutHeaderGroup: 1
+  emotionState: {fileID: 4981926784819808249}
+  attachPoint: {fileID: 0}
+  rb: {fileID: 9190373532576699561}
+  boxCollider: {fileID: 4324511415707369449}
+  angerPushForce: 15
+  angerPushRadius: 3
+  fearJitterForce: 5
+  denialPhaseInterval: 2
+--- !u!114 &3937223680957038387
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3158446771602698915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bfda15d4a2450d4795c815ca32addb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.MagnetAttachPoint
+  ShowTopMostFoldoutHeaderGroup: 1
+  emotionState: {fileID: 4981926784819808249}

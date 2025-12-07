@@ -6,15 +6,15 @@ namespace EmotionBank
 {
     /// <summary>
     /// Put this on the box + on a child of the player body that should receive magnets.
-    /// DISTRIBUTED VERSION:
-    /// - Uses RPCs (RequireOwnership=false) so any player can tell the Box "I put a magnet on you".
+    /// DISTRIBUTED VERSION (Unity 6 Compatible):
+    /// - Uses Server Relay pattern so any player can register a magnet.
     /// </summary>
     public class MagnetAttachPoint : NetworkBehaviour
     {
         public EmotionState emotionState;
 
+        // The local list of magnets stuck to this object
         private readonly List<Magnet> _magnets = new();
-
         public IReadOnlyList<Magnet> Magnets => _magnets;
 
         private void Awake()
@@ -23,36 +23,60 @@ namespace EmotionBank
                 emotionState = GetComponentInParent<EmotionState>();
         }
 
-        // Called by Magnet.cs when it hits this object
+        // ------------------------------------------------------------------------
+        // 1. REGISTER LOGIC (Sticking)
+        // ------------------------------------------------------------------------
+
+        /// <summary>
+        /// Called by Magnet.cs when it detects a collision with this object.
+        /// </summary>
         public void RegisterMagnet(Magnet magnet)
         {
-            // We use an RPC to tell EVERYONE (including the Box Owner) to add this magnet.
-            // requireOwnership = false allows any player (who threw the magnet) to call this.
-            RegisterMagnetRpc(magnet);
+            // Step 1: Client tells Server "I added a magnet"
+            RegisterMagnetServerRpc(magnet);
         }
 
-        [Rpc(SendTo.Everyone, RequireOwnership = false)]
-        private void RegisterMagnetRpc(NetworkBehaviourReference magnetRef)
+        [Rpc(SendTo.Server)]
+        private void RegisterMagnetServerRpc(NetworkBehaviourReference magnetRef)
         {
-            // Unwrap the reference to get the actual Magnet script
+            // Step 2: Server tells Everyone "Add this magnet to your list"
+            RegisterMagnetBroadcastRpc(magnetRef);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void RegisterMagnetBroadcastRpc(NetworkBehaviourReference magnetRef)
+        {
+            // Step 3: Everyone updates their local list
             if (magnetRef.TryGet(out Magnet magnet))
             {
                 if (!_magnets.Contains(magnet))
                 {
                     _magnets.Add(magnet);
-                    // Optional: Debug.Log($"[MagnetAttach] Added {magnet.wordId} to {name}");
+                    // Debug.Log($"[MagnetAttach] Added {magnet.wordId.Value}");
                 }
             }
         }
 
-        // Called by Magnet.cs when it falls off
+        // ------------------------------------------------------------------------
+        // 2. UNREGISTER LOGIC (Unsticking)
+        // ------------------------------------------------------------------------
+
+        /// <summary>
+        /// Called by Magnet.cs when it is grabbed/thrown off.
+        /// </summary>
         public void UnregisterMagnet(Magnet magnet)
         {
-            UnregisterMagnetRpc(magnet);
+            UnregisterMagnetServerRpc(magnet);
         }
 
-        [Rpc(SendTo.Everyone, RequireOwnership = false)]
-        private void UnregisterMagnetRpc(NetworkBehaviourReference magnetRef)
+        [Rpc(SendTo.Server)]
+        private void UnregisterMagnetServerRpc(NetworkBehaviourReference magnetRef)
+        {
+            UnregisterMagnetBroadcastRpc(magnetRef);
+        }
+
+        [Rpc(SendTo.Everyone)]
+        private void UnregisterMagnetBroadcastRpc(NetworkBehaviourReference magnetRef)
         {
             if (magnetRef.TryGet(out Magnet magnet))
             {

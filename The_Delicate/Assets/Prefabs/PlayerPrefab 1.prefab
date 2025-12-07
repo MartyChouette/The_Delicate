@@ -28,7 +28,7 @@ GameObject:
   - component: {fileID: -6542305379551868487}
   m_Layer: 0
   m_Name: PlayerPrefab 1
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -141,7 +141,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1612206324
+  GlobalObjectIdHash: 2541467615
   InScenePlacedSourceGlobalObjectIdHash: 1870757294
   DeferredDespawnTick: 0
   Ownership: 1
@@ -161,7 +161,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 874392634866031428}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 455521db0066b4b4280c34d2fdba6763, type: 3}
   m_Name: 
@@ -234,7 +234,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 874392634866031428}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 282728556d9441828b32555a58de6530, type: 3}
   m_Name: 
@@ -284,7 +284,7 @@ MonoBehaviour:
   moveSpeed: 4
   isFirstPerson: 1
   playerCamera: {fileID: 3573361259951719309}
-  cameraRoot: {fileID: 2554849076494074188}
+  cameraRoot: {fileID: 8795951888602487589}
   cameraDistance: 0
   cameraHeight: 2.3
   rb: {fileID: 8176979188290791781}
@@ -306,17 +306,18 @@ MonoBehaviour:
   rightHand: {fileID: 2012618642341396388}
   leftHandRb: {fileID: 681177659253160439}
   rightHandRb: {fileID: 2985456255264091310}
-  handDistance: 1.89
+  handDistance: 2
   handHeight: 1.2
-  handSpring: 200
-  handDamping: 25
+  handSpring: 10
+  handDamping: 1
   grabRange: 2.5
   grabMask:
     serializedVersion: 2
     m_Bits: 4294967295
+  holdingStrengthMultiplier: 3
   tossForce: 6
-  focusAttractionStrength: 4
-  focusMaxDistance: 4
+  focusAttractionStrength: 8
+  focusMaxDistance: 6
 --- !u!114 &7235177467443225134
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -361,8 +362,8 @@ MonoBehaviour:
       m_Calls: []
   m_ActionEvents: []
   m_NeverAutoSwitchControlSchemes: 0
-  m_DefaultControlScheme: 
-  m_DefaultActionMap: Player
+  m_DefaultControlScheme: Keyboard&Mouse
+  m_DefaultActionMap: Gameplay
   m_SplitScreenIndex: 0
   m_Camera: {fileID: 0}
 --- !u!114 &-3503335937147612771

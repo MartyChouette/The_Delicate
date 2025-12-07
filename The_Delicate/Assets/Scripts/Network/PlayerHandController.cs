@@ -3,12 +3,6 @@ using UnityEngine;
 
 namespace EmotionBank
 {
-    /// <summary>
-    /// DISTRIBUTED AUTHORITY VERSION
-    /// - Removed TryGrabServerRpc, ReleaseHandRpc, etc.
-    /// - Owner grabs objects directly.
-    /// - Includes logic to Request Ownership of the object being grabbed.
-    /// </summary>
     public class PlayerHandController : NetworkBehaviour
     {
         [Header("References")]
@@ -23,8 +17,11 @@ namespace EmotionBank
         public float handHeight = 1.2f;
         public float handSpring = 200f;
         public float handDamping = 25f;
-        public float grabRange = 2.5f;
+        public float grabRange = 10f;
         public LayerMask grabMask;
+
+        [Header("Strength Settings")]
+        public float holdingStrengthMultiplier = 3.0f;
 
         [Header("Magnet Toss Settings")]
         public float tossForce = 6f;
@@ -33,6 +30,7 @@ namespace EmotionBank
         public float focusAttractionStrength = 4f;
         public float focusMaxDistance = 4f;
 
+        // State Tracking
         private bool _leftPressed;
         private bool _rightPressed;
         private bool _leftLocked;
@@ -44,6 +42,7 @@ namespace EmotionBank
         private Magnet _leftHeldMagnet;
         private Magnet _rightHeldMagnet;
 
+        private ulong _currentVoicePartnerId = ulong.MaxValue;
         private bool _hasFocus;
         private Vector3 _focusPoint;
 
@@ -57,22 +56,10 @@ namespace EmotionBank
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-
-            // In Distributed, Owner needs physics enabled to control the hands
-            if (IsOwner)
-            {
-                if (leftHandRb != null) leftHandRb.isKinematic = false;
-                if (rightHandRb != null) rightHandRb.isKinematic = false;
-            }
-            else
-            {
-                // Remotes are kinematic (synced via NetworkTransform)
-                if (leftHandRb != null) leftHandRb.isKinematic = true;
-                if (rightHandRb != null) rightHandRb.isKinematic = true;
-            }
+            bool isOwner = IsOwner;
+            if (leftHandRb != null) leftHandRb.isKinematic = !isOwner;
+            if (rightHandRb != null) rightHandRb.isKinematic = !isOwner;
         }
-
-        // ───────────────────── Input hooks (Called locally) ─────────────────────
 
         public void SetHandPressed(HandSide side, bool pressed)
         {
@@ -88,7 +75,7 @@ namespace EmotionBank
             }
             else
             {
-                TryGrabClosest(side);
+                TryGrabExact(side);
             }
         }
 
@@ -108,23 +95,11 @@ namespace EmotionBank
             }
         }
 
-        public void ToggleLockBothHands()
-        {
-            if (!IsOwner) return;
-            _leftLocked = !_leftLocked;
-            _rightLocked = _leftLocked;
-
-            if (!_leftLocked && !_leftPressed) ReleaseHand(HandSide.Left);
-            if (!_rightLocked && !_rightPressed) ReleaseHand(HandSide.Right);
-        }
-
         public void RequestTossMagnet()
         {
             if (!IsOwner) return;
             PerformToss();
         }
-
-        // ───────────────────── LOCAL ACTIONS (No RPCs) ─────────────────────
 
         public void SetFocusPoint(Vector3 point, bool hasFocus)
         {
@@ -132,44 +107,93 @@ namespace EmotionBank
             _focusPoint = point;
         }
 
-        private void TryGrabClosest(HandSide side)
+        private void TryGrabExact(HandSide side)
         {
             Transform handTf = side == HandSide.Left ? leftHand : rightHand;
-            if (handTf == null) return;
+            Rigidbody handRb = side == HandSide.Left ? leftHandRb : rightHandRb;
+            if (handTf == null || handRb == null) return;
 
             var cam = avatar != null ? avatar.playerCamera : null;
             if (cam == null) return;
 
             Ray ray = new Ray(cam.transform.position, cam.transform.forward);
+
             if (Physics.Raycast(ray, out RaycastHit hit, grabRange, grabMask, QueryTriggerInteraction.Ignore))
             {
                 var hitRb = hit.rigidbody;
                 if (hitRb == null) return;
 
-                // --- DISTRIBUTED OWNERSHIP LOGIC ---
-                // Before we can grab it, we must own it.
-                var netObj = hitRb.GetComponent<NetworkObject>();
-                if (netObj != null && !netObj.IsOwner)
+                // Debug: What did we hit?
+                Debug.Log($"[GRAB DEBUG] Raycast hit: {hit.collider.name} on Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)}");
+
+                // --- CRASH PREVENTION ---
+                if (hitRb == leftHandRb || hitRb == rightHandRb)
                 {
-                    // This assumes "Allow Grab Ownership" is checked in your config
-                    // or Topology allows stealing ownership.
-                    netObj.ChangeOwnership(NetworkManager.Singleton.LocalClientId);
+                    Debug.LogWarning("[GRAB DEBUG] Blocked: Tried to grab own hand.");
+                    return;
+                }
+                if (avatar != null && hitRb == avatar.rb)
+                {
+                    Debug.LogWarning("[GRAB DEBUG] Blocked: Tried to grab own body.");
+                    return;
+                }
+                if (hitRb.transform.root == transform.root)
+                {
+                    Debug.LogWarning("[GRAB DEBUG] Blocked: Tried to grab part of self hierarchy.");
+                    return;
+                }
+                // ------------------------
+
+                // Teleport Visuals
+                handTf.position = hit.point;
+                handTf.rotation = Quaternion.LookRotation(-hit.normal);
+                handRb.linearVelocity = Vector3.zero;
+                handRb.angularVelocity = Vector3.zero;
+
+                var netObj = hitRb.GetComponent<NetworkObject>();
+
+                // --- PLAYER DETECTION LOGIC ---
+                // We check if the thing we hit is part of a player avatar
+                PlayerAvatar hitAvatar = hitRb.GetComponent<PlayerAvatar>();
+
+                if (hitAvatar != null && netObj != null)
+                {
+                    Debug.Log($"[GRAB DEBUG] Hit a Player! (Client ID: {netObj.OwnerClientId}). Requesting Voice Link...");
+                    RequestVoiceLinkServerRpc(netObj.OwnerClientId);
+                }
+                else if (netObj != null)
+                {
+                    Debug.Log($"[GRAB DEBUG] Hit a Network Object (Not a Player). ID: {netObj.NetworkObjectId}");
+                    // Take ownership if it's an item/magnet
+                    if (!netObj.IsOwner) netObj.ChangeOwnership(NetworkManager.Singleton.LocalClientId);
+                }
+                else
+                {
+                    Debug.Log($"[GRAB DEBUG] Hit a non-networked object.");
                 }
 
+                // Magnet Logic
                 Magnet mag = hitRb.GetComponent<Magnet>();
                 if (mag != null) mag.Unstick();
 
-                // Create the joint locally
+                // Joint Creation
                 FixedJoint joint = handTf.GetComponent<FixedJoint>();
                 if (joint != null) Destroy(joint);
 
                 joint = handTf.gameObject.AddComponent<FixedJoint>();
                 joint.connectedBody = hitRb;
-                joint.breakForce = 2000f;
-                joint.breakTorque = 2000f;
+                joint.breakForce = 5000f;
+                joint.breakTorque = 5000f;
 
                 if (side == HandSide.Left) { _leftJoint = joint; _leftHeldMagnet = mag; }
                 else { _rightJoint = joint; _rightHeldMagnet = mag; }
+
+                Debug.Log("[GRAB DEBUG] Joint Created successfully.");
+            }
+            else
+            {
+                // Optional: Log misses if you are really stuck
+                // Debug.Log("[GRAB DEBUG] Raycast missed everything.");
             }
         }
 
@@ -179,6 +203,16 @@ namespace EmotionBank
             if (handTf == null) return;
 
             var joint = handTf.GetComponent<FixedJoint>();
+
+            if (joint != null && joint.connectedBody != null)
+            {
+                if (joint.connectedBody.GetComponent<PlayerAvatar>() != null)
+                {
+                    Debug.Log("[GRAB DEBUG] Released a Player. Requesting Voice Disconnect...");
+                    RequestVoiceDisconnectServerRpc();
+                }
+            }
+
             if (joint != null) Destroy(joint);
 
             if (side == HandSide.Left) { _leftJoint = null; _leftHeldMagnet = null; }
@@ -193,13 +227,8 @@ namespace EmotionBank
             Transform handTf = (mag == _leftHeldMagnet) ? leftHand : rightHand;
             HandSide side = (mag == _leftHeldMagnet) ? HandSide.Left : HandSide.Right;
 
-            // Clear Joint
-            var joint = handTf.GetComponent<FixedJoint>();
-            if (joint != null) Destroy(joint);
-            if (side == HandSide.Left) { _leftJoint = null; _leftHeldMagnet = null; }
-            else { _rightJoint = null; _rightHeldMagnet = null; }
+            ReleaseHand(side);
 
-            // Apply Force locally (since we now own the magnet from the grab)
             mag.Unstick();
             mag.rb.linearVelocity = Vector3.zero;
             mag.rb.angularVelocity = Vector3.zero;
@@ -211,13 +240,9 @@ namespace EmotionBank
             mag.rb.AddForce(dir * tossForce, ForceMode.VelocityChange);
         }
 
-        // ───────────────────── Physics Loop ─────────────────────
-
         private void FixedUpdate()
         {
-            // Only run simulation if we are the Owner
             if (!IsOwner) return;
-
             UpdateHandTarget(leftHand, leftHandRb, true);
             UpdateHandTarget(rightHand, rightHandRb, false);
         }
@@ -225,7 +250,8 @@ namespace EmotionBank
         private void UpdateHandTarget(Transform hand, Rigidbody handRb, bool isLeft)
         {
             if (hand == null || handRb == null) return;
-            if (hand.GetComponent<FixedJoint>() != null) return;
+
+            bool isHolding = hand.GetComponent<FixedJoint>() != null;
 
             Vector3 bodyPos = avatar.transform.position + Vector3.up * handHeight;
             Vector3 side = avatar.transform.right * (isLeft ? -1f : 1f);
@@ -245,10 +271,50 @@ namespace EmotionBank
             }
 
             Vector3 toTarget = targetPos - hand.position;
-            Vector3 desiredVel = toTarget * handSpring;
+            float currentSpring = isHolding ? handSpring * holdingStrengthMultiplier : handSpring;
+            Vector3 desiredVel = toTarget * currentSpring;
             Vector3 force = desiredVel - handRb.linearVelocity * handDamping;
 
             handRb.AddForce(force, ForceMode.Acceleration);
+        }
+
+        [ServerRpc]
+        private void RequestVoiceLinkServerRpc(ulong targetClientId)
+        {
+            Debug.Log($"[GRAB DEBUG] Server received Voice Link Request for Target: {targetClientId}");
+            EnableVoiceClientRpc(targetClientId, new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { OwnerClientId } } });
+            EnableVoiceClientRpc(OwnerClientId, new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { targetClientId } } });
+        }
+
+        [ServerRpc]
+        private void RequestVoiceDisconnectServerRpc()
+        {
+            Debug.Log("[GRAB DEBUG] Server received Disconnect Request.");
+            DisableVoiceClientRpc();
+        }
+
+        [ClientRpc]
+        private void EnableVoiceClientRpc(ulong partnerId, ClientRpcParams clientRpcParams = default)
+        {
+            if (_currentVoicePartnerId == partnerId) return;
+            _currentVoicePartnerId = partnerId;
+
+            Debug.Log($"[GRAB DEBUG] CLIENT: Voice Connected! Unmuting Mic. Partner: {partnerId}");
+
+            if (SimpleVivoxManager.Instance != null)
+                SimpleVivoxManager.Instance.SetMute(false);
+        }
+
+        [ClientRpc]
+        private void DisableVoiceClientRpc(ClientRpcParams clientRpcParams = default)
+        {
+            if (_currentVoicePartnerId == ulong.MaxValue) return;
+            _currentVoicePartnerId = ulong.MaxValue;
+
+            Debug.Log("[GRAB DEBUG] CLIENT: Voice Disconnected. Muting Mic.");
+
+            if (SimpleVivoxManager.Instance != null)
+                SimpleVivoxManager.Instance.SetMute(true);
         }
     }
 }

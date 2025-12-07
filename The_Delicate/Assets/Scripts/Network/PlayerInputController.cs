@@ -54,6 +54,8 @@ namespace EmotionBank
         {
             if (_playerInput == null) return;
             _playerInput.enabled = true;
+
+            // Unsubscribe first to avoid double-subscription errors
             _playerInput.onActionTriggered -= OnActionTriggered;
             _playerInput.onActionTriggered += OnActionTriggered;
 
@@ -75,6 +77,9 @@ namespace EmotionBank
         {
             if (!IsOwner) return;
 
+            // Ensure we have a hand controller before trying to use it
+            if (handController == null) return;
+
             switch (ctx.action.name)
             {
                 case "Move":
@@ -90,7 +95,12 @@ namespace EmotionBank
                     HandleHandInput(ctx, HandSide.Right, ref _lastRightTapTime);
                     break;
                 case "LockBothHands":
-                    if (ctx.performed) handController.ToggleLockBothHands();
+                    // FIX: Manually lock both hands here since the method was removed from HandController
+                    if (ctx.performed)
+                    {
+                        handController.ToggleLockHand(HandSide.Left);
+                        handController.ToggleLockHand(HandSide.Right);
+                    }
                     break;
                 case "Toss":
                     if (ctx.performed) handController.RequestTossMagnet();
@@ -103,9 +113,17 @@ namespace EmotionBank
             if (ctx.started)
             {
                 double now = Time.timeAsDouble;
-                if (now - lastTapTime < DoubleTapWindow) handController.ToggleLockHand(side);
+                // Double tap check
+                if (now - lastTapTime < DoubleTapWindow)
+                {
+                    handController.ToggleLockHand(side);
+                }
+                else
+                {
+                    // Single press
+                    handController.SetHandPressed(side, true);
+                }
                 lastTapTime = now;
-                handController.SetHandPressed(side, true);
             }
             else if (ctx.canceled)
             {

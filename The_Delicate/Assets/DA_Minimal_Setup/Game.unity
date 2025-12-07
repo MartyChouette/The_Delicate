@@ -119,6 +119,17 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!114 &80280853 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4981926784819808249, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
+  m_PrefabInstance: {fileID: 1403960765}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f4e13ed5cc920248bf21d5230cc85f2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.EmotionState
 --- !u!1 &87392788
 GameObject:
   m_ObjectHideFlags: 0
@@ -179,6 +190,7 @@ GameObject:
   - component: {fileID: 197332085}
   - component: {fileID: 197332086}
   - component: {fileID: 197332087}
+  - component: {fileID: 197332088}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -239,12 +251,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.GameSessionManager
   ShowTopMostFoldoutHeaderGroup: 1
-  payloadBoxPrefab: {fileID: 3158446771602698915, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
-  boxSpawnPoint: {fileID: 437778278}
+  sceneBox: {fileID: 80280853}
   lobbyDoor: {fileID: 1050382225}
   obstacleCourseGate: {fileID: 330032753}
   currentState:
     m_InternalValue: 0
+--- !u!114 &197332088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 197332084}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 723f488304d2fde4388a8e8aa0226a97, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SimpleVivoxManager
+  channelName: GlobalEmotionLobby
 --- !u!1 &330032753
 GameObject:
   m_ObjectHideFlags: 0
@@ -871,7 +895,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1263284084}
   - component: {fileID: 1263284083}
-  - component: {fileID: 1263284082}
   - component: {fileID: 1263284085}
   m_Layer: 0
   m_Name: Main Camera
@@ -880,14 +903,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &1263284082
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1263284081}
-  m_Enabled: 1
 --- !u!20 &1263284083
 Camera:
   m_ObjectHideFlags: 0
@@ -1133,25 +1148,29 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 289069707532804331, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 3158446771602698915, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
       propertyPath: m_Name
       value: box
       objectReference: {fileID: 0}
     - target: {fileID: 3158446771602698915, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
-      propertyPath: m_TagString
-      value: Grab
+      propertyPath: m_Layer
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 3992241080535044827, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
       propertyPath: GlobalObjectIdHash
       value: 3180368384
       objectReference: {fileID: 0}
-    - target: {fileID: 3992241080535044827, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
-      propertyPath: InScenePlacedSourceGlobalObjectIdHash
-      value: 3680036387
+    - target: {fileID: 4933638912929111571, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
+      propertyPath: attachPoint
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 6772942845625096299, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
-      propertyPath: baseDriftStrength
-      value: 1
+      propertyPath: magnetAttach
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 7407519401841854300, guid: 021b86963693ce34b9eac17a9baef063, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1347,8 +1366,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 6
+  m_fontSizeBase: 6
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -1461,7 +1480,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 20, y: 5}
+  m_SizeDelta: {x: 3, y: 1}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1921484978
 GameObject:
@@ -1478,6 +1497,7 @@ GameObject:
   - component: {fileID: 1921484979}
   - component: {fileID: 1921484985}
   - component: {fileID: 1921484980}
+  - component: {fileID: 1921484986}
   m_Layer: 0
   m_Name: warmth_magnet
   m_TagString: Grab
@@ -1554,7 +1574,7 @@ CapsuleCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 2
   m_Radius: 0.5
   m_Height: 2
@@ -1567,7 +1587,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1921484978}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -1626,7 +1646,7 @@ Transform:
   m_GameObject: {fileID: 1921484978}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 23.10647, y: 0, z: 10.52255}
+  m_LocalPosition: {x: 23.6, y: 0, z: 10.52255}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1653,7 +1673,28 @@ MonoBehaviour:
   stickMask:
     serializedVersion: 2
     m_Bits: 8
-  stripImpulseThreshold: 10
+  stickImpactThreshold: 0.5
+--- !u!65 &1921484986
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1921484978}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 2.76, y: 0.53, z: 0.07}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
