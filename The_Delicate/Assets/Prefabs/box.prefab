@@ -189,15 +189,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.EmotionState
   ShowTopMostFoldoutHeaderGroup: 1
-  emotionDefinitions: []
+  emotionDefinitions:
+  - {fileID: 11400000, guid: 301a56c30d78a3b4b971382b4fca57ea, type: 2}
+  - {fileID: 11400000, guid: a609f6b6d484c784caaed26c890f1fbe, type: 2}
+  - {fileID: 11400000, guid: dbe2adb4a25a56d43bfd88732f06b4fa, type: 2}
+  - {fileID: 11400000, guid: 4431954f9e5d9dc47a319ce4873d7ae0, type: 2}
   fearIntensity:
-    m_InternalValue: 0
+    m_InternalValue: 0.3
   abandonmentIntensity:
-    m_InternalValue: 0
+    m_InternalValue: 0.4
   denialIntensity:
-    m_InternalValue: 0
+    m_InternalValue: 0.4
   angerIntensity:
-    m_InternalValue: 0
+    m_InternalValue: 0.3
 --- !u!54 &9190373532576699561
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -239,9 +243,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.BoxEmotionApplier
   ShowTopMostFoldoutHeaderGroup: 1
   emotionState: {fileID: 4981926784819808249}
-  magnetAttach: {fileID: 0}
+  magnetAttach: {fileID: 3937223680957038387}
   rb: {fileID: 9190373532576699561}
-  baseDriftStrength: 1
+  baseDriftStrength: 6
   renderersToHide: []
   collidersToToggle: []
 --- !u!114 &4933638912929111571
@@ -258,7 +262,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.BoxPersonalityController
   ShowTopMostFoldoutHeaderGroup: 1
   emotionState: {fileID: 4981926784819808249}
-  attachPoint: {fileID: 0}
+  attachPoint: {fileID: 3937223680957038387}
   rb: {fileID: 9190373532576699561}
   boxCollider: {fileID: 4324511415707369449}
   angerPushForce: 15

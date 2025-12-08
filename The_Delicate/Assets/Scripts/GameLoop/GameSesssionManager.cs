@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using TMPro; // Added for UI text
 
 namespace EmotionBank
 {
@@ -28,15 +29,31 @@ namespace EmotionBank
         public GameObject lobbyDoor;        // Blocks entry to Selection Room
         public GameObject obstacleCourseGate; // Blocks entry to Obstacle Course
 
+        [Header("UI")]
+        [Tooltip("The Panel containing Retry/Quit buttons. Should be hidden by default.")]
+        public GameObject gameOverPanel;
+        [Tooltip("Text to display 'You Won' or 'Game Over'. Optional.")]
+        public TMP_Text winnerText;
+
         [Header("Game State")]
-        public NetworkVariable<GameState> currentState = new NetworkVariable<GameState>(GameState.Lobby);
-        public NetworkVariable<float> currentBoxHealth = new NetworkVariable<float>(100f);
+        // Fixed: Removed 'Owner' write permission. Only Server should write to these.
+        public NetworkVariable<GameState> currentState = new NetworkVariable<GameState>(
+            GameState.Lobby,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+        public NetworkVariable<float> currentBoxHealth = new NetworkVariable<float>(
+            150f,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
+        // Fixed: Use default constructor which is Server-Write by default.
         public NetworkVariable<float> countdownTimer = new NetworkVariable<float>(0f);
         public NetworkVariable<bool> didWin = new NetworkVariable<bool>(false);
 
         private readonly HashSet<ulong> playersInLobbyZone = new HashSet<ulong>();
-
-
         private float _voteCheckTimer;
 
         private void Awake()
@@ -57,6 +74,7 @@ namespace EmotionBank
                 currentBoxHealth.Value = boxMaxHealth;
                 ToggleBoxVisuals(false); // Hide box initially
             }
+
             // Force visual update on join
             UpdateVisualsForState(currentState.Value);
             currentState.OnValueChanged += (oldState, newState) => UpdateVisualsForState(newState);
@@ -64,6 +82,8 @@ namespace EmotionBank
 
         private void Update()
         {
+            // CRITICAL FIX: Only Server runs game logic. 
+            // This prevents clients from trying to write to NetworkVariables and crashing.
             if (!IsServer) return;
 
             float dt = Time.deltaTime;
@@ -115,6 +135,36 @@ namespace EmotionBank
             if (state == GameState.Gameplay || state == GameState.GameOver)
             {
                 ToggleBoxVisuals(true);
+            }
+
+            // UI LOGIC:
+            // Show Game Over Panel only when state is GameOver
+            // UI LOGIC:
+            if (gameOverPanel != null)
+            {
+                bool isGameOver = (state == GameState.GameOver);
+                gameOverPanel.SetActive(isGameOver);
+
+                // --- ADD THIS CURSOR LOGIC ---
+                if (isGameOver)
+                {
+                    // Unlock and show cursor so you can click "Retry"
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+                else if (state == GameState.Gameplay)
+                {
+                    // Lock and hide cursor again when gameplay starts
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+                // -----------------------------
+
+                if (isGameOver && winnerText != null)
+                {
+                    winnerText.text = didWin.Value ? "VICTORY!" : "GAME OVER";
+                    winnerText.color = didWin.Value ? Color.green : Color.red;
+                }
             }
         }
 
@@ -265,7 +315,5 @@ namespace EmotionBank
                 StartLobbyCountdown();
             }
         }
-
-
     }
 }

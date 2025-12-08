@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32fc00334a1a7574fb3d3e43a6521ce9, type: 3}
+  m_Name: Fear
+  m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.EmotionDefinition
+  emotionType: 0
+  uiColor: {r: 0, g: 1, b: 0.95722246, a: 1}
+  affectsPlayers: 1
+  maxCameraJitterDeg: 2
+  maxHandJitter: 0.6
+  maxBodyTiltDeg: 6
+  stumbleChancePerSecond: 0.6
+  affectsBox: 0
+  baseDriftStrength: 3
+  randomImpulseStrength: 1.75
+  phaseIntervalSeconds: 0.2
+  intensityLerpSpeed: 1

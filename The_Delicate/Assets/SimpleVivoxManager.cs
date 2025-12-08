@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Vivox;
@@ -49,13 +50,22 @@ namespace EmotionBank
             VivoxService.Instance.UnmuteInputDevice();
         }
 
-        private void Update()
+        void Update()
         {
-            // PROXIMITY LOGIC: Update our position every frame
-            if (VivoxService.Instance.IsLoggedIn && playerTransform != null)
+            // 1. SAFETY CHECK: Ensure Vivox is ready and we are actually inside a channel
+            if (VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.Count > 0 &&
+                playerTransform != null)
             {
-                // FIXED: Added the required 'channelName' parameter to the Set3DPosition method call
-                VivoxService.Instance.Set3DPosition(playerTransform.position, playerTransform.position, playerTransform.forward, playerTransform.up, channelName, true);
+                // 2. GET CHANNEL NAME: Newer Vivox versions need to know WHICH channel to update.
+                // We grab the name of the first channel you are connected to.
+                string firstChannel = VivoxService.Instance.ActiveChannels.Keys.FirstOrDefault();
+
+                if (!string.IsNullOrEmpty(firstChannel))
+                {
+                    // 3. UPDATED CALL: Pass the GameObject, the Channel Name, and 'true'
+                    // This overload (GameObject, string, bool) is much cleaner than passing 4 Vectors.
+                    VivoxService.Instance.Set3DPosition(playerTransform.gameObject, firstChannel, true);
+                }
             }
         }
 

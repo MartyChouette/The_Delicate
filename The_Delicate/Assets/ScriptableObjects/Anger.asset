@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32fc00334a1a7574fb3d3e43a6521ce9, type: 3}
+  m_Name: Anger
+  m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.EmotionDefinition
+  emotionType: 3
+  uiColor: {r: 0.9559748, g: 0, b: 0, a: 1}
+  affectsPlayers: 1
+  maxCameraJitterDeg: 1.5
+  maxHandJitter: 0.2
+  maxBodyTiltDeg: 3
+  stumbleChancePerSecond: 0.02
+  affectsBox: 0
+  baseDriftStrength: 0.2
+  randomImpulseStrength: 6
+  phaseIntervalSeconds: 0.5
+  intensityLerpSpeed: 1
