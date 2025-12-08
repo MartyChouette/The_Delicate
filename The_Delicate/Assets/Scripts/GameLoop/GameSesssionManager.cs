@@ -34,6 +34,9 @@ namespace EmotionBank
         public NetworkVariable<float> countdownTimer = new NetworkVariable<float>(0f);
         public NetworkVariable<bool> didWin = new NetworkVariable<bool>(false);
 
+        private readonly HashSet<ulong> playersInLobbyZone = new HashSet<ulong>();
+
+
         private float _voteCheckTimer;
 
         private void Awake()
@@ -44,6 +47,11 @@ namespace EmotionBank
 
         public override void OnNetworkSpawn()
         {
+            base.OnNetworkSpawn();
+            Debug.Log($"[SESSION] GameSessionManager spawned on " +
+                      $"{(IsServer ? "SERVER/HOST" : "CLIENT")} " +
+                      $"(OwnerClientId={OwnerClientId}, LocalClientId={NetworkManager.Singleton.LocalClientId})");
+
             if (IsServer)
             {
                 currentBoxHealth.Value = boxMaxHealth;
@@ -212,5 +220,52 @@ namespace EmotionBank
         {
             Application.Quit();
         }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void ReportLobbyZoneStateServerRpc(ulong playerId, bool inZone)
+        {
+            if (!IsServer) return;
+
+            if (inZone)
+            {
+                if (playersInLobbyZone.Add(playerId))
+                {
+                    Debug.Log($"[LOBBY][SERVER] Player {playerId} ENTERED lobby zone. Count={playersInLobbyZone.Count}");
+                }
+            }
+            else
+            {
+                if (playersInLobbyZone.Remove(playerId))
+                {
+                    Debug.Log($"[LOBBY][SERVER] Player {playerId} EXITED lobby zone. Count={playersInLobbyZone.Count}");
+                }
+            }
+
+            CheckLobbyReady();
+        }
+
+        private void CheckLobbyReady()
+        {
+            if (!IsServer) return;
+
+            if (currentState.Value != GameState.Lobby)
+            {
+                Debug.Log($"[LOBBY][SERVER] CheckLobbyReady in state {currentState.Value}, ignoring.");
+                return;
+            }
+
+            int connectedCount = NetworkManager.Singleton.ConnectedClientsIds.Count;
+            int inZoneCount = playersInLobbyZone.Count;
+
+            Debug.Log($"[LOBBY CHECK][SERVER] In Zone: {inZoneCount} / Required: {connectedCount}");
+
+            if (connectedCount > 0 && inZoneCount >= connectedCount)
+            {
+                Debug.Log("[LOBBY][SERVER] All players present! Starting lobby countdown...");
+                StartLobbyCountdown();
+            }
+        }
+
+
     }
 }

@@ -1,44 +1,53 @@
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
 namespace EmotionBank
 {
-    public class LobbyTriggerZone : NetworkBehaviour
+    [RequireComponent(typeof(Collider))]
+    public class LobbyTriggerZone : MonoBehaviour
     {
-        private List<ulong> playersInZone = new List<ulong>();
+        private void Awake()
+        {
+            var col = GetComponent<Collider>();
+            col.isTrigger = true;
+        }
 
         private void OnTriggerEnter(Collider other)
         {
-            if (!IsServer) return;
-
-            // Check if player
             var netObj = other.GetComponentInParent<NetworkObject>();
-            if (netObj != null && netObj.IsPlayerObject)
+            if (netObj == null || !netObj.IsPlayerObject)
+                return;
+
+            // Only the local player on each client should report its own entry.
+            if (netObj.OwnerClientId != NetworkManager.Singleton.LocalClientId)
+                return;
+
+            Debug.Log($"[LOBBY] LOCAL player {netObj.OwnerClientId} ENTERED zone, sending RPC to GameSessionManager.");
+
+            if (GameSessionManager.Instance != null && GameSessionManager.Instance.IsSpawned)
             {
-                if (!playersInZone.Contains(netObj.OwnerClientId))
-                {
-                    playersInZone.Add(netObj.OwnerClientId);
-                    CheckReady();
-                }
+                GameSessionManager.Instance.ReportLobbyZoneStateServerRpc(netObj.OwnerClientId, true);
+            }
+            else
+            {
+                Debug.LogWarning("[LOBBY] GameSessionManager.Instance is null or not spawned.");
             }
         }
 
         private void OnTriggerExit(Collider other)
         {
-            if (!IsServer) return;
             var netObj = other.GetComponentInParent<NetworkObject>();
-            if (netObj != null && playersInZone.Contains(netObj.OwnerClientId))
-                playersInZone.Remove(netObj.OwnerClientId);
-        }
+            if (netObj == null || !netObj.IsPlayerObject)
+                return;
 
-        private void CheckReady()
-        {
-            // Start if all connected players are in the zone
-            int connectedCount = NetworkManager.Singleton.ConnectedClientsIds.Count;
-            if (playersInZone.Count >= connectedCount && connectedCount > 0)
+            if (netObj.OwnerClientId != NetworkManager.Singleton.LocalClientId)
+                return;
+
+            Debug.Log($"[LOBBY] LOCAL player {netObj.OwnerClientId} EXITED zone, sending RPC to GameSessionManager.");
+
+            if (GameSessionManager.Instance != null && GameSessionManager.Instance.IsSpawned)
             {
-                GameSessionManager.Instance.StartLobbyCountdown();
+                GameSessionManager.Instance.ReportLobbyZoneStateServerRpc(netObj.OwnerClientId, false);
             }
         }
     }

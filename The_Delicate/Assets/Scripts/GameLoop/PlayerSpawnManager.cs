@@ -24,14 +24,25 @@ namespace EmotionBank
 
         public Transform GetSpawnPoint(ulong clientId)
         {
+            // 1. Check if we are hitting the fallback
             if (spawnPoints == null || spawnPoints.Length == 0)
-                return transform; // Fallback to this object's position
+            {
+                Debug.LogWarning($"[SpawnManager] Array Empty! Using Manager Position: {transform.position}");
+                return transform;
+            }
 
-            // Use Modulo (%) so if we have 2 points but 3 players, 
-            // Player 3 loops back to the first point.
             int index = (int)(clientId % (ulong)spawnPoints.Length);
+            Transform point = spawnPoints[index];
 
-            return spawnPoints[index];
+            // 2. Check if the point itself is valid
+            if (point == null)
+            {
+                Debug.LogError($"[SpawnManager] Point at index {index} is Missing/Null! Using Manager Position.");
+                return transform;
+            }
+
+            Debug.Log($"[SpawnManager] Spawning Player {clientId} at Point {index}: '{point.name}' ({point.position})");
+            return point;
         }
     }
 }
