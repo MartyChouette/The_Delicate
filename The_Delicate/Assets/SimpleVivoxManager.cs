@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Vivox;
@@ -15,61 +16,86 @@ namespace EmotionBank
         public string channelName = "GlobalEmotionLobby";
 
         [Header("Proximity Settings")]
-        public int chatRadius = 15; // How far you can hear (meters)
-        public Transform playerTransform; // Assign local player here after spawn
+        public int chatRadius = 15;
+        public Transform playerTransform;
+
+        private bool _isVivoxReady = false;
 
         private void Awake()
         {
             if (Instance != null && Instance != this) Destroy(this);
             else Instance = this;
+
+            // Don't destroy this manager when loading scenes
+            DontDestroyOnLoad(gameObject);
         }
 
         async void Start()
         {
-            await UnityServices.InitializeAsync();
-            if (!AuthenticationService.Instance.IsSignedIn)
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            // 1. Initialize Unity Services (Shared by Relay & Vivox)
+            if (UnityServices.State == ServicesInitializationState.Uninitialized)
+            {
+                await UnityServices.InitializeAsync();
+            }
 
+            // We do NOT login here anymore. We just make sure Services are ready.
+            Debug.Log("[VivoxManager] Services Initialized. Waiting for player to join game...");
+        }
+
+        // --- CALL THIS WHEN PLAYER SPAWNS ---
+        public async void JoinGameVoice()
+        {
+            // 1. Ensure we are signed in (Relay likely handled this already!)
+            if (!AuthenticationService.Instance.IsSignedIn)
+            {
+                try
+                {
+                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                }
+                catch (AuthenticationException)
+                {
+                    // Relay beat us to it. This is fine.
+                    Debug.LogWarning("[Vivox] Auth handled by Relay/NetworkManager.");
+                }
+            }
+
+            // 2. Initialize Vivox (if not already)
             await VivoxService.Instance.InitializeAsync();
 
-            // Login
-            LoginOptions options = new LoginOptions
+            // 3. Login to Vivox
+            if (!VivoxService.Instance.IsLoggedIn)
             {
-                DisplayName = "Player_" + UnityEngine.Random.Range(1000, 9999),
-                ParticipantUpdateFrequency = ParticipantPropertyUpdateFrequency.FivePerSecond
-            };
-            await VivoxService.Instance.LoginAsync(options);
+                LoginOptions options = new LoginOptions
+                {
+                    DisplayName = "Player_" + UnityEngine.Random.Range(1000, 9999),
+                    ParticipantUpdateFrequency = ParticipantPropertyUpdateFrequency.FivePerSecond
+                };
+                await VivoxService.Instance.LoginAsync(options);
+            }
 
-            // CHANGED: Join a POSITIONAL (3D) Channel
+            // 4. Join the 3D Channel
             Channel3DProperties props = new Channel3DProperties(chatRadius, 1, 1.0f, AudioFadeModel.InverseByDistance);
             await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.AudioOnly, props);
 
-            Debug.Log($"Joined Proximity Channel: {channelName}");
-
-            // CHANGED: Unmute immediately so we can talk freely
+            Debug.Log($"[Vivox] SUCCESS: Joined Channel {channelName}");
             VivoxService.Instance.UnmuteInputDevice();
+
+            _isVivoxReady = true;
         }
 
         void Update()
         {
-            // 1. SAFETY CHECK: Ensure Vivox is ready and we are actually inside a channel
-            if (VivoxService.Instance != null && VivoxService.Instance.ActiveChannels.Count > 0 &&
-                playerTransform != null)
-            {
-                // 2. GET CHANNEL NAME: Newer Vivox versions need to know WHICH channel to update.
-                // We grab the name of the first channel you are connected to.
-                string firstChannel = VivoxService.Instance.ActiveChannels.Keys.FirstOrDefault();
+            if (!_isVivoxReady || VivoxService.Instance == null || playerTransform == null) return;
+            if (VivoxService.Instance.ActiveChannels.Count == 0) return;
 
-                if (!string.IsNullOrEmpty(firstChannel))
-                {
-                    // 3. UPDATED CALL: Pass the GameObject, the Channel Name, and 'true'
-                    // This overload (GameObject, string, bool) is much cleaner than passing 4 Vectors.
-                    VivoxService.Instance.Set3DPosition(playerTransform.gameObject, firstChannel, true);
-                }
+            // FIX: Using the correct Unity 6 signature (GameObject, ChannelName, Active)
+            string firstChannel = VivoxService.Instance.ActiveChannels.Keys.FirstOrDefault();
+            if (!string.IsNullOrEmpty(firstChannel))
+            {
+                VivoxService.Instance.Set3DPosition(playerTransform.gameObject, firstChannel, true);
             }
         }
 
-        // Helper to let the player register themselves when they spawn
         public void SetLocalPlayer(Transform t)
         {
             playerTransform = t;

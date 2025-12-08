@@ -305,6 +305,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   avatar: {fileID: 6604016489912286572}
   handController: {fileID: 3344609220406573684}
+  playerCamera: {fileID: 3573361259951719309}
   lookSensitivity: 120
   minPitch: -80
   maxPitch: 80
@@ -421,6 +422,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ab3a08ae70087548b4f1cb4725994e2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerUIController
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &1497518052802585944
 GameObject:
   m_ObjectHideFlags: 0

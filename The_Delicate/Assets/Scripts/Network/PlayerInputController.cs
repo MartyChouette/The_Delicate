@@ -11,6 +11,10 @@ namespace EmotionBank
         public PlayerAvatar avatar;
         public PlayerHandController handController;
 
+        [Header("Ghost Fix")]
+        [Tooltip("Drag the Camera inside this player prefab here.")]
+        public Camera playerCamera;
+
         [Header("Look Settings")]
         public float lookSensitivity = 15f;
         public float minPitch = -80f;
@@ -32,7 +36,10 @@ namespace EmotionBank
         {
             if (avatar == null) avatar = GetComponent<PlayerAvatar>();
             if (handController == null) handController = GetComponent<PlayerHandController>();
+
             _playerInput = GetComponent<PlayerInput>();
+            // SAFETY: Disable input immediately on Awake so we don't move before the network is ready
+            if (_playerInput != null) _playerInput.enabled = false;
         }
 
         public override void OnNetworkSpawn()
@@ -40,6 +47,7 @@ namespace EmotionBank
             base.OnNetworkSpawn();
             if (_playerInput == null) _playerInput = GetComponent<PlayerInput>();
 
+            // Determines who controls this object
             if (IsOwner)
             {
                 EnableInput();
@@ -52,13 +60,20 @@ namespace EmotionBank
 
         private void EnableInput()
         {
+            // 1. GHOST FIX: Enable Camera & Audio Listener for the OWNER only
+            if (playerCamera != null) playerCamera.enabled = true;
+            var listener = GetComponentInChildren<AudioListener>();
+            if (listener != null) listener.enabled = true;
+
+            // 2. Enable Input System
             if (_playerInput == null) return;
             _playerInput.enabled = true;
 
-            // Unsubscribe first to avoid double-subscription errors
+            // Unsubscribe first to be safe, then subscribe
             _playerInput.onActionTriggered -= OnActionTriggered;
             _playerInput.onActionTriggered += OnActionTriggered;
 
+            // Lock Cursor
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
 
@@ -68,6 +83,12 @@ namespace EmotionBank
 
         private void DisableInput()
         {
+            // 1. GHOST FIX: Disable Camera & Audio Listener for REMOTE players
+            if (playerCamera != null) playerCamera.enabled = false;
+            var listener = GetComponentInChildren<AudioListener>();
+            if (listener != null) listener.enabled = false;
+
+            // 2. Disable Input System
             if (_playerInput == null) return;
             _playerInput.onActionTriggered -= OnActionTriggered;
             _playerInput.enabled = false;
@@ -95,7 +116,6 @@ namespace EmotionBank
                     HandleHandInput(ctx, HandSide.Right, ref _lastRightTapTime);
                     break;
                 case "LockBothHands":
-                    // FIX: Manually lock both hands here since the method was removed from HandController
                     if (ctx.performed)
                     {
                         handController.ToggleLockHand(HandSide.Left);
