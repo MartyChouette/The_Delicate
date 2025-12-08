@@ -8,10 +8,14 @@ namespace EmotionBank
 {
     public class SimpleVivoxManager : MonoBehaviour
     {
+        public static SimpleVivoxManager Instance;
+
         [Header("Settings")]
         public string channelName = "GlobalEmotionLobby";
 
-        public static SimpleVivoxManager Instance;
+        [Header("Proximity Settings")]
+        public int chatRadius = 15; // How far you can hear (meters)
+        public Transform playerTransform; // Assign local player here after spawn
 
         private void Awake()
         {
@@ -19,37 +23,15 @@ namespace EmotionBank
             else Instance = this;
         }
 
-        public void SetMute(bool isMuted)
-        {
-            if (VivoxService.Instance == null) return;
-
-            if (isMuted)
-                VivoxService.Instance.MuteInputDevice();
-            else
-                VivoxService.Instance.UnmuteInputDevice();
-
-            Debug.Log($"[Vivox] Mic Muted: {isMuted}");
-        }
-
         async void Start()
         {
-            // 1. Initialize Unity Services
             await UnityServices.InitializeAsync();
-
-            // 2. Sign in Anonymously
             if (!AuthenticationService.Instance.IsSignedIn)
-            {
                 await AuthenticationService.Instance.SignInAnonymouslyAsync();
-            }
 
-            // 3. Initialize Vivox
             await VivoxService.Instance.InitializeAsync();
 
-            // --- FIX: SUBSCRIBE HERE (After Initialization) ---
-            VivoxService.Instance.LoggedIn += OnLoggedIn;
-            VivoxService.Instance.LoggedOut += OnLoggedOut;
-
-            // 4. Log in to Vivox
+            // Login
             LoginOptions options = new LoginOptions
             {
                 DisplayName = "Player_" + UnityEngine.Random.Range(1000, 9999),
@@ -57,31 +39,30 @@ namespace EmotionBank
             };
             await VivoxService.Instance.LoginAsync(options);
 
-            Debug.Log("Vivox Logged In");
+            // CHANGED: Join a POSITIONAL (3D) Channel
+            Channel3DProperties props = new Channel3DProperties(chatRadius, 1, 1.0f, AudioFadeModel.InverseByDistance);
+            await VivoxService.Instance.JoinPositionalChannelAsync(channelName, ChatCapability.AudioOnly, props);
 
-            // 5. Join the Channel
-            await VivoxService.Instance.JoinGroupChannelAsync(channelName, ChatCapability.AudioOnly);
+            Debug.Log($"Joined Proximity Channel: {channelName}");
 
-            Debug.Log($"Joined Channel: {channelName}");
-
-            // 6. Mute immediately
-            VivoxService.Instance.MuteInputDevice();
-            Debug.Log("Mic Muted (Waiting for Hand Grab)");
+            // CHANGED: Unmute immediately so we can talk freely
+            VivoxService.Instance.UnmuteInputDevice();
         }
 
-        // Use OnDestroy to clean up since we subscribed in Start
-        private void OnDestroy()
+        private void Update()
         {
-            // Check if Instance exists before trying to unsubscribe to avoid errors on shutdown
-            if (VivoxService.Instance != null)
+            // PROXIMITY LOGIC: Update our position every frame
+            if (VivoxService.Instance.IsLoggedIn && playerTransform != null)
             {
-                VivoxService.Instance.LoggedIn -= OnLoggedIn;
-                VivoxService.Instance.LoggedOut -= OnLoggedOut;
+                // FIXED: Added the required 'channelName' parameter to the Set3DPosition method call
+                VivoxService.Instance.Set3DPosition(playerTransform.position, playerTransform.position, playerTransform.forward, playerTransform.up, channelName, true);
             }
         }
 
-        // Removed OnEnable/OnDisable to prevent the race condition error
-        private void OnLoggedIn() { Debug.Log("Vivox: User Logged In"); }
-        private void OnLoggedOut() { Debug.Log("Vivox: User Logged Out"); }
+        // Helper to let the player register themselves when they spawn
+        public void SetLocalPlayer(Transform t)
+        {
+            playerTransform = t;
+        }
     }
 }

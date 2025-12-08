@@ -43,6 +43,12 @@ namespace EmotionBank
 
             if (IsOwner)
             {
+
+                if (SimpleVivoxManager.Instance != null)
+                {
+                    SimpleVivoxManager.Instance.SetLocalPlayer(this.transform);
+                }
+
                 if (playerCamera != null)
                 {
                     playerCamera.enabled = true;
@@ -52,6 +58,8 @@ namespace EmotionBank
                 }
                 // Sync initial yaw
                 _targetYaw = transform.eulerAngles.y;
+
+
             }
             else
             {

@@ -123,26 +123,11 @@ namespace EmotionBank
                 var hitRb = hit.rigidbody;
                 if (hitRb == null) return;
 
-                // Debug: What did we hit?
-                Debug.Log($"[GRAB DEBUG] Raycast hit: {hit.collider.name} on Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)}");
-
-                // --- CRASH PREVENTION ---
-                if (hitRb == leftHandRb || hitRb == rightHandRb)
-                {
-                    Debug.LogWarning("[GRAB DEBUG] Blocked: Tried to grab own hand.");
-                    return;
-                }
-                if (avatar != null && hitRb == avatar.rb)
-                {
-                    Debug.LogWarning("[GRAB DEBUG] Blocked: Tried to grab own body.");
-                    return;
-                }
-                if (hitRb.transform.root == transform.root)
-                {
-                    Debug.LogWarning("[GRAB DEBUG] Blocked: Tried to grab part of self hierarchy.");
-                    return;
-                }
-                // ------------------------
+                // --- CRASH PREVENTION (FixedJoint can't connect to itself) ---
+                if (hitRb == leftHandRb || hitRb == rightHandRb) return;
+                if (avatar != null && hitRb == avatar.rb) return;
+                if (hitRb.transform.root == transform.root) return;
+                // -----------------------------------------------------------
 
                 // Teleport Visuals
                 handTf.position = hit.point;
@@ -151,25 +136,23 @@ namespace EmotionBank
                 handRb.angularVelocity = Vector3.zero;
 
                 var netObj = hitRb.GetComponent<NetworkObject>();
-
-                // --- PLAYER DETECTION LOGIC ---
-                // We check if the thing we hit is part of a player avatar
                 PlayerAvatar hitAvatar = hitRb.GetComponent<PlayerAvatar>();
 
+                // ==========================================================
+                // DISABLED FOR PROXIMITY CHAT - Grab should not trigger voice
+                // ==========================================================
+                /*
                 if (hitAvatar != null && netObj != null)
                 {
-                    Debug.Log($"[GRAB DEBUG] Hit a Player! (Client ID: {netObj.OwnerClientId}). Requesting Voice Link...");
+                    Debug.Log($"[GRAB DEBUG] Hit a Player! Requesting Voice Link...");
                     RequestVoiceLinkServerRpc(netObj.OwnerClientId);
                 }
-                else if (netObj != null)
+                else 
+                */
+                if (netObj != null)
                 {
-                    Debug.Log($"[GRAB DEBUG] Hit a Network Object (Not a Player). ID: {netObj.NetworkObjectId}");
-                    // Take ownership if it's an item/magnet
+                    // If it's an item/box, take ownership so we can move it
                     if (!netObj.IsOwner) netObj.ChangeOwnership(NetworkManager.Singleton.LocalClientId);
-                }
-                else
-                {
-                    Debug.Log($"[GRAB DEBUG] Hit a non-networked object.");
                 }
 
                 // Magnet Logic
@@ -187,13 +170,6 @@ namespace EmotionBank
 
                 if (side == HandSide.Left) { _leftJoint = joint; _leftHeldMagnet = mag; }
                 else { _rightJoint = joint; _rightHeldMagnet = mag; }
-
-                Debug.Log("[GRAB DEBUG] Joint Created successfully.");
-            }
-            else
-            {
-                // Optional: Log misses if you are really stuck
-                // Debug.Log("[GRAB DEBUG] Raycast missed everything.");
             }
         }
 
@@ -204,14 +180,18 @@ namespace EmotionBank
 
             var joint = handTf.GetComponent<FixedJoint>();
 
+            // ==========================================================
+            // DISABLED FOR PROXIMITY CHAT - Release shouldn't disconnect
+            // ==========================================================
+            /*
             if (joint != null && joint.connectedBody != null)
             {
                 if (joint.connectedBody.GetComponent<PlayerAvatar>() != null)
                 {
-                    Debug.Log("[GRAB DEBUG] Released a Player. Requesting Voice Disconnect...");
                     RequestVoiceDisconnectServerRpc();
                 }
             }
+            */
 
             if (joint != null) Destroy(joint);
 
@@ -278,43 +258,24 @@ namespace EmotionBank
             handRb.AddForce(force, ForceMode.Acceleration);
         }
 
-        [ServerRpc]
-        private void RequestVoiceLinkServerRpc(ulong targetClientId)
-        {
-            Debug.Log($"[GRAB DEBUG] Server received Voice Link Request for Target: {targetClientId}");
-            EnableVoiceClientRpc(targetClientId, new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { OwnerClientId } } });
-            EnableVoiceClientRpc(OwnerClientId, new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { targetClientId } } });
-        }
+        // --- EMPTY RPCS TO PREVENT ERRORS ---
 
         [ServerRpc]
-        private void RequestVoiceDisconnectServerRpc()
-        {
-            Debug.Log("[GRAB DEBUG] Server received Disconnect Request.");
-            DisableVoiceClientRpc();
-        }
+        private void RequestVoiceLinkServerRpc(ulong targetClientId) { }
+
+        [ServerRpc]
+        private void RequestVoiceDisconnectServerRpc() { }
 
         [ClientRpc]
         private void EnableVoiceClientRpc(ulong partnerId, ClientRpcParams clientRpcParams = default)
         {
-            if (_currentVoicePartnerId == partnerId) return;
-            _currentVoicePartnerId = partnerId;
-
-            Debug.Log($"[GRAB DEBUG] CLIENT: Voice Connected! Unmuting Mic. Partner: {partnerId}");
-
-            if (SimpleVivoxManager.Instance != null)
-                SimpleVivoxManager.Instance.SetMute(false);
+            // DISABLED - Do not touch SetMute
         }
 
         [ClientRpc]
         private void DisableVoiceClientRpc(ClientRpcParams clientRpcParams = default)
         {
-            if (_currentVoicePartnerId == ulong.MaxValue) return;
-            _currentVoicePartnerId = ulong.MaxValue;
-
-            Debug.Log("[GRAB DEBUG] CLIENT: Voice Disconnected. Muting Mic.");
-
-            if (SimpleVivoxManager.Instance != null)
-                SimpleVivoxManager.Instance.SetMute(true);
+            // DISABLED - Do not touch SetMute
         }
     }
 }

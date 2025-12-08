@@ -1,23 +1,40 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace EmotionBank
 {
-    public enum GameState { Lobby, Selection, Gameplay }
+    public enum GameState
+    {
+        Lobby,
+        CountdownToSelection, // "3... 2... 1..."
+        Selection,            // "SELECTION" - Players vote now
+        CountdownToGameplay,  // "3... 2... 1..."
+        Gameplay,             // "BEGIN" - Obstacle Gate opens
+        GameOver
+    }
 
     public class GameSessionManager : NetworkBehaviour
     {
         public static GameSessionManager Instance;
 
-        [Header("Scene References")]
-        [Tooltip("Drag the Box that is ALREADY in the scene here.")]
-        public EmotionState sceneBox; // <--- CHANGED: Reference existing object
-        public GameObject lobbyDoor;
-        public GameObject obstacleCourseGate;
+        [Header("Scene Config")]
+        public EmotionState sceneBox; // The box in the scene
+        public Transform boxSpawnPoint;
+        public float boxMaxHealth = 100f;
 
+        [Header("Gates")]
+        public GameObject lobbyDoor;        // Blocks entry to Selection Room
+        public GameObject obstacleCourseGate; // Blocks entry to Obstacle Course
+
+        [Header("Game State")]
         public NetworkVariable<GameState> currentState = new NetworkVariable<GameState>(GameState.Lobby);
-        private float _checkTimer;
+        public NetworkVariable<float> currentBoxHealth = new NetworkVariable<float>(100f);
+        public NetworkVariable<float> countdownTimer = new NetworkVariable<float>(0f);
+        public NetworkVariable<bool> didWin = new NetworkVariable<bool>(false);
+
+        private float _voteCheckTimer;
 
         private void Awake()
         {
@@ -27,64 +44,96 @@ namespace EmotionBank
 
         public override void OnNetworkSpawn()
         {
-            currentState.OnValueChanged += OnStateChanged;
-            UpdateVisualsForState(currentState.Value);
-
-            // Ensure the box starts hidden/inactive if we are in the lobby
-            if (IsServer && sceneBox != null)
+            if (IsServer)
             {
-                // We disable the visual/physics but keep the NetworkObject active 
-                // so we don't break the connection.
-                sceneBox.gameObject.SetActive(true);
-                ToggleBoxVisuals(false);
+                currentBoxHealth.Value = boxMaxHealth;
+                ToggleBoxVisuals(false); // Hide box initially
             }
+            // Force visual update on join
+            UpdateVisualsForState(currentState.Value);
+            currentState.OnValueChanged += (oldState, newState) => UpdateVisualsForState(newState);
         }
 
-        private void OnStateChanged(GameState oldState, GameState newState)
+        private void Update()
         {
-            UpdateVisualsForState(newState);
+            if (!IsServer) return;
+
+            float dt = Time.deltaTime;
+
+            switch (currentState.Value)
+            {
+                case GameState.CountdownToSelection:
+                    countdownTimer.Value -= dt;
+                    if (countdownTimer.Value <= 0f)
+                    {
+                        // 3-2-1 Done -> Open Lobby Door, Start Selection
+                        currentState.Value = GameState.Selection;
+                    }
+                    break;
+
+                case GameState.Selection:
+                    CheckVotes();
+                    break;
+
+                case GameState.CountdownToGameplay:
+                    countdownTimer.Value -= dt;
+                    if (countdownTimer.Value <= 0f)
+                    {
+                        // 3-2-1 Done -> Open Obstacle Gate, Start Game
+                        StartGameplay();
+                    }
+                    break;
+            }
         }
 
         private void UpdateVisualsForState(GameState state)
         {
-            if (lobbyDoor != null) lobbyDoor.SetActive(state == GameState.Lobby);
-            if (obstacleCourseGate != null) obstacleCourseGate.SetActive(state != GameState.Gameplay);
+            // GATE LOGIC:
+            // Lobby Door: Active (Closed) ONLY during Lobby & first countdown. Removes during Selection.
+            if (lobbyDoor != null)
+            {
+                bool isClosed = (state == GameState.Lobby || state == GameState.CountdownToSelection);
+                lobbyDoor.SetActive(isClosed);
+            }
 
-            // If gameplay started, show the box
-            if (state == GameState.Gameplay && sceneBox != null)
+            // Obstacle Gate: Active (Closed) UNTIL Gameplay starts.
+            if (obstacleCourseGate != null)
+            {
+                bool isClosed = (state != GameState.Gameplay && state != GameState.GameOver);
+                obstacleCourseGate.SetActive(isClosed);
+            }
+
+            // Box Visuals: Only show in Gameplay/GameOver
+            if (state == GameState.Gameplay || state == GameState.GameOver)
             {
                 ToggleBoxVisuals(true);
             }
         }
 
-        private void ToggleBoxVisuals(bool isActive)
+        // --- PUBLIC TRIGGERS ---
+
+        public void StartLobbyCountdown()
         {
-            if (sceneBox == null) return;
-
-            // Toggle renderers and colliders so it's "invisible" until needed
-            foreach (var r in sceneBox.GetComponentsInChildren<Renderer>()) r.enabled = isActive;
-            foreach (var c in sceneBox.GetComponentsInChildren<Collider>()) c.enabled = isActive;
-
-            var rb = sceneBox.GetComponent<Rigidbody>();
-            if (rb) rb.isKinematic = !isActive;
+            if (!IsServer || currentState.Value != GameState.Lobby) return;
+            countdownTimer.Value = 3.0f;
+            currentState.Value = GameState.CountdownToSelection;
         }
 
-        private void Update()
-        {
-            if (!IsServer && !IsHost) return;
-            if (currentState.Value == GameState.Selection) CheckVotes();
-        }
+        public void TriggerWin() { if (IsServer) EndGame(true); }
+        public void TriggerLoss() { if (IsServer) EndGame(false); }
 
-        public void StartSelectionPhase()
+        public void TakeDamage(float amount)
         {
-            if (IsServer || IsHost) currentState.Value = GameState.Selection;
+            if (!IsServer || currentState.Value != GameState.Gameplay) return;
+            currentBoxHealth.Value -= amount;
+            if (currentBoxHealth.Value <= 0) TriggerLoss();
         }
 
         private void CheckVotes()
         {
-            _checkTimer += Time.deltaTime;
-            if (_checkTimer < 1.0f) return;
-            _checkTimer = 0f;
+            _voteCheckTimer += Time.deltaTime;
+            if (_voteCheckTimer < 0.5f) return;
+            _voteCheckTimer = 0f;
 
             var players = FindObjectsByType<PlayerVoteState>(FindObjectsSortMode.None);
             if (players.Length == 0) return;
@@ -101,25 +150,15 @@ namespace EmotionBank
 
             if (allReady && players.Length >= NetworkManager.Singleton.ConnectedClients.Count)
             {
-                StartGameplayPhase(votes);
+                ApplyBoxEmotions(votes);
+                countdownTimer.Value = 3.0f;
+                currentState.Value = GameState.CountdownToGameplay;
             }
-        }
-
-        private void StartGameplayPhase(List<EmotionType> votes)
-        {
-            Debug.Log("All players voted! Activating Box...");
-            ApplyBoxEmotions(votes);
-            currentState.Value = GameState.Gameplay;
         }
 
         private void ApplyBoxEmotions(List<EmotionType> votes)
         {
             if (sceneBox == null) return;
-
-            // Since it's a Scene Object, the Server ALWAYS owns it.
-            // We don't need SpawnWithOwnership or IsOwner checks anymore.
-            // We can just write directly.
-
             float fear = 0f, anger = 0f, abandon = 0f, denial = 0f;
             foreach (var v in votes)
             {
@@ -131,11 +170,47 @@ namespace EmotionBank
                     case EmotionType.Denial: denial += 0.35f; break;
                 }
             }
-
             sceneBox.fearIntensity.Value = Mathf.Clamp01(fear);
             sceneBox.angerIntensity.Value = Mathf.Clamp01(anger);
             sceneBox.abandonmentIntensity.Value = Mathf.Clamp01(abandon);
             sceneBox.denialIntensity.Value = Mathf.Clamp01(denial);
+        }
+
+        private void StartGameplay()
+        {
+            currentState.Value = GameState.Gameplay;
+        }
+
+        private void EndGame(bool won)
+        {
+            didWin.Value = won;
+            currentState.Value = GameState.GameOver;
+            if (sceneBox != null)
+            {
+                var rb = sceneBox.GetComponent<Rigidbody>();
+                if (rb) rb.isKinematic = true; // Stop box movement
+            }
+        }
+
+        private void ToggleBoxVisuals(bool isActive)
+        {
+            if (sceneBox == null) return;
+            foreach (var r in sceneBox.GetComponentsInChildren<Renderer>()) r.enabled = isActive;
+            foreach (var c in sceneBox.GetComponentsInChildren<Collider>()) c.enabled = isActive;
+            var rb = sceneBox.GetComponent<Rigidbody>();
+            if (rb) rb.isKinematic = !isActive;
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void RestartGameServerRpc()
+        {
+            NetworkManager.Singleton.SceneManager.LoadScene(SceneManager.GetActiveScene().name, LoadSceneMode.Single);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        public void QuitGameServerRpc()
+        {
+            Application.Quit();
         }
     }
 }

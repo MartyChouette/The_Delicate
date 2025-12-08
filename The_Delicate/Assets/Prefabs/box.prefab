@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4547934206570551064}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: magnet attach point
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -49,7 +49,8 @@ GameObject:
   - component: {fileID: 6772942845625096299}
   - component: {fileID: 4933638912929111571}
   - component: {fileID: 3937223680957038387}
-  m_Layer: 0
+  - component: {fileID: 3571112189430515794}
+  m_Layer: 3
   m_Name: box
   m_TagString: Grab
   m_Icon: {fileID: 0}
@@ -105,7 +106,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 99da8250d5fd98743ae1df5aec4984ed, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -205,7 +206,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3158446771602698915}
   serializedVersion: 5
-  m_Mass: 1
+  m_Mass: 2.5
   m_LinearDamping: 0
   m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
@@ -264,6 +265,7 @@ MonoBehaviour:
   angerPushRadius: 3
   fearJitterForce: 5
   denialPhaseInterval: 2
+  ghostKeepCollider: 1
 --- !u!114 &3937223680957038387
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -278,3 +280,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.MagnetAttachPoint
   ShowTopMostFoldoutHeaderGroup: 1
   emotionState: {fileID: 4981926784819808249}
+--- !u!114 &3571112189430515794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3158446771602698915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bde7fde686a7164c8c2b2b173f44e54, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EmotionBank.BoxHealth
+  ShowTopMostFoldoutHeaderGroup: 1
+  damageThreshold: 3
+  damageMultiplier: 5
